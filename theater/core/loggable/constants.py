@@ -1,0 +1,6 @@
+LOGNAME: str = 'logname'
+LOGLEVEL: str = 'loglevel'
+LOGCONSOLE: str = 'logconsole'
+LOGFILE: str = 'logfile'
+LOGFORMAT: str = 'logformat'
+LOGDATEFMT: str = 'logdatefmt'

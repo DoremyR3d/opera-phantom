@@ -8,8 +8,7 @@ from typing import Union
 
 from _queue import Empty
 
-# FIXME Act sparisce
-from theater.act.messages import Message, MessageFactory
+from theater.core.messages import Message, MessageFactory
 from theater.core.constants import SIGNAL_KEY, Signal, MsgType, MSGTYPE_KEY
 from theater.core.errors import IllegalValueException, ScoreEnd
 from theater.core.components.constants import INTERRUPTED_STATUS, IDLE_STATUS, MSGHANDLING_STATUS

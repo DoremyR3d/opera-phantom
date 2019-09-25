@@ -4,11 +4,11 @@ from typing import Union
 
 from . import HB_REQTIME, HB_STATUS, HB_STATUSMESSAGE, HB_STATUSTIME, HB_TIME
 
-from theater.act.actors import Actor
-from theater.act.actors import subscribe_actor
-from theater.act.messages import Message, Signal, MsgType
-from theater.act.messages import SENDER_KEY, MSGTYPE_KEY
-from theater.act.traits import Loggable
+from theater import Actor
+from theater import subscribe_actor
+from theater import Message, Signal, MsgType
+from theater import SENDER_KEY, MSGTYPE_KEY
+from theater import Loggable
 
 __all__ = []
 

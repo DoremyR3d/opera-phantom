@@ -1,69 +1,75 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 
-from theater.core.constants import MsgType, SENDER_KEY, MSGTYPE_KEY, SIGNAL_KEY, HB_REQTIME, HB_STATUS, HB_TIME, \
-    HB_STATUSTIME, HB_STATUSMESSAGE
+from theater.core.constants import MsgType
 from theater.core.constants import Signal
-from theater.core.messages import MessageFactory
+from theater.core.messages import Message, Status
 
 
-class TestMessageFactory:
-    def __initfact(self) -> MessageFactory:
-        testfact = MessageFactory("Test")
-        assert testfact
-
-        testfact.signal = Signal.BEAT
-        return testfact
-
+class TestMessage:
     def test_msgtypenone(self):
-        testfact = self.__initfact()
-        testfact.type = MsgType.NONE
-        testfact.body = None
-        out = testfact.build()
+        out = Message(sender="Test", type=MsgType.NONE, signal=Signal.BEAT, body=None)
 
-        assert out.header == {SENDER_KEY: "Test", MSGTYPE_KEY: MsgType.NONE, SIGNAL_KEY: Signal.BEAT}
+        assert out.sender == "Test"
+        assert out.type == MsgType.NONE
+        assert out.signal == Signal.BEAT
         assert out.body is None
 
     def test_msgtypetext(self):
-        testfact = self.__initfact()
-        testfact.type = MsgType.TEXT
-        testfact.body = "Test body"
-        out = testfact.build()
+        out = Message(sender="Test", type=MsgType.TEXT, signal=Signal.BEAT, body="Test body")
 
-        assert out.header == {SENDER_KEY: "Test", MSGTYPE_KEY: MsgType.TEXT, SIGNAL_KEY: Signal.BEAT}
+        assert out.sender == "Test"
+        assert out.type == MsgType.TEXT
+        assert out.signal == Signal.BEAT
         assert out.body == "Test body"
 
     def test_msgtypestatus(self):
-        testfact = self.__initfact()
-        testfact.type = MsgType.STATUS
         dtnow = datetime.now()
-        testfact.body = {
-            HB_REQTIME: dtnow,
-            HB_STATUS: "Test",
-            HB_TIME: dtnow,
-            HB_STATUSTIME: dtnow,
-            HB_STATUSMESSAGE: "Test status"
-        }
-        out = testfact.build()
+        statusbody = Status(reqtime=dtnow,
+                            status="Test",
+                            time=dtnow,
+                            statustime=dtnow,
+                            statusmessage="Test status")
+        out = Message(sender="Test", type=MsgType.STATUS, signal=Signal.BEAT, body=statusbody)
 
-        assert out.header == {SENDER_KEY: "Test", MSGTYPE_KEY: MsgType.STATUS, SIGNAL_KEY: Signal.BEAT}
-        assert out.body == {HB_REQTIME: dtnow, HB_STATUS: "Test", HB_TIME: dtnow, HB_STATUSTIME: dtnow,
-                            HB_STATUSMESSAGE: "Test status"}
+        assert out.sender == "Test"
+        assert out.type == MsgType.STATUS
+        assert out.signal == Signal.BEAT
+        assert out.body == statusbody
 
     def test_msgtypebytes(self):
-        testfact = self.__initfact()
-        testfact.type = MsgType.BYTES
-        testfact.body = b'Test message'
-        out = testfact.build()
+        out = Message(sender="Test", type=MsgType.BYTES, signal=Signal.BEAT, body=b'Test message')
 
-        assert out.header == {SENDER_KEY: "Test", MSGTYPE_KEY: MsgType.BYTES, SIGNAL_KEY: Signal.BEAT}
+        assert out.sender == "Test"
+        assert out.type == MsgType.BYTES
+        assert out.signal == Signal.BEAT
         assert out.body == b'Test message'
 
     def test_msgtypemap(self):
-        testfact = self.__initfact()
-        testfact.type = MsgType.MAP
-        testfact.body = {'Test': 'Map'}
-        out = testfact.build()
+        out = Message(sender="Test", type=MsgType.MAP, signal=Signal.BEAT, body={"Test": "Map"})
 
-        assert out.header == {SENDER_KEY: "Test", MSGTYPE_KEY: MsgType.MAP, SIGNAL_KEY: Signal.BEAT}
+        assert out.sender == "Test"
+        assert out.type == MsgType.MAP
+        assert out.signal == Signal.BEAT
         assert out.body == {"Test": "Map"}
+
+
+class TestStatus:
+    def test_fullstatus(self):
+        nowdt = datetime.now()
+        out = Status(reqtime=nowdt, status="Test", statusmessage="Test", time=nowdt, statustime=nowdt)
+        assert out
+        assert out.reqtime == nowdt
+        assert out.status == "Test"
+        assert out.statusmessage == "Test"
+        assert out.time == nowdt
+        assert out.statustime == nowdt
+
+    def test_nonestatus(self):
+        out = Status(reqtime=None, status=None, statusmessage=None, time=None, statustime=None)
+        assert out
+        assert out.reqtime is None
+        assert out.status is None
+        assert out.statusmessage is None
+        assert out.time is None
+        assert out.statustime is None

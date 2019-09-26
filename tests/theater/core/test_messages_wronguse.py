@@ -3,153 +3,83 @@ from datetime import datetime
 
 import pytest
 
-from theater.core.constants import MsgType, Signal, HB_REQTIME, HB_STATUSMESSAGE, HB_STATUS, HB_STATUSTIME, HB_TIME
-from theater.core.errors import IllegalActionException, IllegalValueException
-from theater.core.messages import MessageFactory
+from theater.core.constants import MsgType, Signal
+from theater.core.messages import Message, Status
 
 
-class TestMessageFactoryWrongUse:
-    def test_bodybeforehead(self):
-        with pytest.raises(IllegalActionException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.body = None
-            msgfact.type = MsgType.NONE
-            msgfact.signal = Signal.BEAT
-            _ = msgfact.build()
-
+class TestMessageWrongUsage:
     def test_nosignal(self):
-        with pytest.raises(IllegalActionException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.NONE
-            msgfact.body = None
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.NONE, body=None)
+
+    def test_nonesignal(self):
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.NONE, signal=None, body=None)
 
     def test_notype(self):
-        with pytest.raises(IllegalActionException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.signal = Signal.BEAT
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", signal=Signal.TRIGGER, body=None)
+
+    def test_nonetype(self):
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", signal=Signal.TRIGGER, type=None, body=None)
 
     def test_nosender(self):
-        with pytest.raises(IllegalActionException):
-            msgfact = MessageFactory(None)
-            msgfact.signal = Signal.BEAT
-            msgfact.type = MsgType.TEXT
-            msgfact.body = "I shouldn't be here"
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(signal=Signal.TRIGGER, type=MsgType.NONE, body=None)
 
-    def test_illegalsender(self):
-        with pytest.raises(IllegalActionException):
-            class Dummy(object):
-                @property
-                def name(self):
-                    return "ACABDummy"
-
-            msgfact = MessageFactory(Dummy())
-            msgfact.type = MsgType.TEXT
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = "ACAB"
-            _ = msgfact.build()
+    def test_nonesender(self):
+        with pytest.raises(TypeError):
+            _ = Message(sender=None, signal=Signal.TRIGGER, type=MsgType.NONE, body=None)
 
     def test_nonemismatch(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.NONE
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = "ACAB"
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.NONE, signal=Signal.TRIGGER, body="ACAB")
 
     def test_textmismatch(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.TEXT
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = 42
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.TEXT, signal=Signal.TRIGGER, body=42)
 
     def test_bytesmismatch(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.BYTES
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = "ACAB"
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.BYTES, signal=Signal.TRIGGER, body="ACAB")
 
     def test_mapmismatch(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.MAP
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = "ACAB"
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.MAP, signal=Signal.TRIGGER, body="ACAB")
 
     def test_statusmismatch(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.STATUS
-            msgfact.signal = Signal.TRIGGER
-            msgfact.body = "ACAB"
-            _ = msgfact.build()
-
-    def test_illegalstatus(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.STATUS
-            msgfact.signal = Signal.BEAT
-            msgfact.body = {"ACAB": "YOLO"}
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            _ = Message(sender="TestSender", type=MsgType.STATUS, signal=Signal.TRIGGER, body="ACAB")
 
     def test_partialstatus(self):
-        with pytest.raises(IllegalValueException):
-            msgfact = MessageFactory("TestSender")
-            msgfact.type = MsgType.STATUS
-            msgfact.signal = Signal.BEAT
-            msgfact.body = {HB_REQTIME: datetime.now()}
-            _ = msgfact.build()
+        with pytest.raises(TypeError):
+            tsstat = Status(reqtime=datetime.now())
+            _ = Message(sender="TestSender", type=MsgType.STATUS, signal=Signal.BEAT, body=tsstat)
 
-    def test_statuswrongtypes(self):
-        msgfact = MessageFactory("TestSender")
-        msgfact.type = MsgType.STATUS
-        msgfact.signal = Signal.BEAT
-        with pytest.raises(IllegalValueException):
-            msgfact.body = {
-                HB_REQTIME: "Now",
-                HB_STATUSMESSAGE: "Test",
-                HB_STATUS: "Test",
-                HB_STATUSTIME: datetime.now(),
-                HB_TIME: datetime.now()
-            }
-        with pytest.raises(IllegalValueException):
-            msgfact.body = {
-                HB_REQTIME: datetime.now(),
-                HB_STATUSMESSAGE: 5,
-                HB_STATUS: "Test",
-                HB_STATUSTIME: datetime.now(),
-                HB_TIME: datetime.now()
-            }
-        with pytest.raises(IllegalValueException):
-            msgfact.body = {
-                HB_REQTIME: datetime.now(),
-                HB_STATUSMESSAGE: "Test",
-                HB_STATUS: 5,
-                HB_STATUSTIME: datetime.now(),
-                HB_TIME: datetime.now()
-            }
-        with pytest.raises(IllegalValueException):
-            msgfact.body = {
-                HB_REQTIME: datetime.now(),
-                HB_STATUSMESSAGE: "Test",
-                HB_STATUS: "Test",
-                HB_STATUSTIME: "Now",
-                HB_TIME: datetime.now()
-            }
-        with pytest.raises(IllegalValueException):
-            msgfact.body = {
-                HB_REQTIME: datetime.now(),
-                HB_STATUSMESSAGE: "Test",
-                HB_STATUS: "Test",
-                HB_STATUSTIME: datetime.now(),
-                HB_TIME: "Now"
-            }
 
-    pass
+class TestStatusWrongUsage:
+    def test_wrongreqtimetype(self):
+        with pytest.raises(TypeError):
+            _ = Status(reqtime="Now", statusmessage="Test", status="Test",
+                       statustime=datetime.now(), time=datetime.now())
+
+    def test_wrongstatusmessagetype(self):
+        with pytest.raises(TypeError):
+            _ = Status(reqtime=datetime.now(), statusmessage=5, status="Test",
+                       statustime=datetime.now(), time=datetime.now())
+
+    def test_wrongstatustype(self):
+        with pytest.raises(TypeError):
+            _ = Status(reqtime=datetime.now(), statusmessage="Test", status=5,
+                       statustime=datetime.now(), time=datetime.now())
+
+    def test_wrongstatustimetype(self):
+        with pytest.raises(TypeError):
+            _ = Status(reqtime=datetime.now(), statusmessage="Test", status="Test",
+                       statustime="Now", time=datetime.now())
+
+    def test_wrongtimetype(self):
+        with pytest.raises(TypeError):
+            _ = Status(reqtime=datetime.now(), statusmessage="Test", status="Test",
+                       statustime=datetime.now(), time="Now")

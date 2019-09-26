@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from theater.core.loggable import LOGNAME, LOGLEVEL, LOGCONSOLE, LOGFILE, LOGFORMAT, LOGDATEFMT
+from theater.core.loggable.constants import LOGNAME, LOGLEVEL, LOGCONSOLE, LOGFILE, LOGFORMAT, LOGDATEFMT
 
 
 class Loggable(ABC):

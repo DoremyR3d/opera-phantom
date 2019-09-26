@@ -3,16 +3,15 @@ import time
 from abc import ABC, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
-from queue import Full
+from queue import Full, Empty
 from typing import Union
 
-from _queue import Empty
+import attr
 
-from theater.core.messages import Message, MessageFactory
-from theater.core.constants import SIGNAL_KEY, Signal, MsgType, MSGTYPE_KEY
-from theater.core.errors import IllegalValueException, ScoreEnd
 from theater.core.components.constants import INTERRUPTED_STATUS, IDLE_STATUS, MSGHANDLING_STATUS
-from theater.core.constants import HB_REQTIME, HB_STATUS, HB_TIME, HB_STATUSTIME, HB_STATUSMESSAGE
+from theater.core.constants import Signal, MsgType
+from theater.core.errors import IllegalValueException, ScoreEnd
+from theater.core.messages import Message, Status
 
 __all__ = ['BaseComponent', 'BaseMusician', 'DelegatingMusician']
 
@@ -75,7 +74,7 @@ class BaseComponent(ABC):
 
     def _handlemessage(self, msg: Message) -> Union[Signal, None]:
         """Reads a Signal in a message, than redirects the handling to a specialized method. Returns a Signal or None"""
-        msgsignal = msg.header[SIGNAL_KEY]
+        msgsignal = msg.signal
         if msgsignal is Signal.BEAT:
             return self._handlebeat(msg)
         elif msgsignal is Signal.TRIGGER:
@@ -183,18 +182,15 @@ class BaseMusician(BaseComponent, ABC):
     def _handlebeat(self, msg: Message) -> Union[Signal, None]:
         """It sends a BEAT message using the _conductorq if the message body is NONE or STATUS. The answer
         depends on the body type of the incoming message"""
-        msgtype = msg.header[MSGTYPE_KEY]
+        msgtype = msg.type
         if msgtype is MsgType.NONE:
             self._answerconductor(Signal.BEAT, MsgType.NONE, None)
             return Signal.BEAT
         elif msgtype is MsgType.STATUS:
-            self._answerconductor(Signal.BEAT, MsgType.STATUS, {
-                HB_REQTIME: msg.body[HB_REQTIME],
-                HB_STATUS: "RUNNING",
-                HB_TIME: datetime.now(),
-                HB_STATUSTIME: self._starttime,
-                HB_STATUSMESSAGE: None
-            })
+            newbody = attr.evolve(msg.body,
+                                  status="Running", time=datetime.now(),
+                                  statustime=self._starttime, statusmessage=None)
+            self._answerconductor(Signal.BEAT, MsgType.STATUS, newbody)
             return Signal.BEAT
         else:
             return None
@@ -204,23 +200,20 @@ class BaseMusician(BaseComponent, ABC):
 
     def _interrupthook(self):
         """Sends a detailed BEAT message, indicating that this Musician has been interrupted"""
-        self._answerconductor(Signal.BEAT, MsgType.STATUS, {
-            HB_REQTIME: None,
-            HB_STATUS: INTERRUPTED_STATUS,
-            HB_TIME: datetime.now(),
-            HB_STATUSTIME: datetime.now(),
-            HB_STATUSMESSAGE: "End of actors execution"
-        })
+        self._answerconductor(Signal.BEAT, MsgType.STATUS, Status(reqtime=None,
+                                                                  status=INTERRUPTED_STATUS,
+                                                                  time=datetime.now(),
+                                                                  statustime=datetime.now(),
+                                                                  statusmessage="End of actors execution"))
 
     def _answerconductor(self, msgsignal: Signal, msgtype: MsgType, msgbody):
         """Handles creation and shipping of a message toward the Musician's _conductorsq"""
-        msgbuilder = MessageFactory(self.__actorname)
-        msgbuilder.signal = msgsignal
-        msgbuilder.type = msgtype
-        if msgbody:
-            msgbuilder.body = msgbody
+        msg = Message(sender=self.__actorname,
+                      signal=msgsignal,
+                      type=msgtype,
+                      body=msgbody)
         try:
-            self._conductorsq.put_nowait(msgbuilder.build())
+            self._conductorsq.put_nowait(msg)
         except Full as e:
             self._catchsendexception(e)
 
@@ -299,18 +292,16 @@ class DelegatingMusician(BaseMusician, ABC):
 
     def _handlebeat(self, msg: Message) -> Union[Signal, None]:
         """extends BaseMusician._handlebeat. It adds the status states to the STATUS beat"""
-        msgtype = msg.header[MSGTYPE_KEY]
+        msgtype = msg.type
         if msgtype is MsgType.NONE:
             self._answerconductor(Signal.BEAT, MsgType.NONE, None)
             return Signal.BEAT
         elif msgtype is MsgType.STATUS:
-            self._answerconductor(Signal.BEAT, MsgType.STATUS, {
-                HB_REQTIME: msg.body[HB_REQTIME],
-                HB_STATUS: self._status,
-                HB_TIME: datetime.now(),
-                HB_STATUSTIME: self._statustime,
-                HB_STATUSMESSAGE: self.__statusdetail
-            })
+            self._answerconductor(Signal.BEAT, MsgType.STATUS, Status(reqtime=None,
+                                                                      status=self._status,
+                                                                      time=datetime.now(),
+                                                                      statustime=self._statustime,
+                                                                      statusmessage=self._statusdetail))
             return Signal.BEAT
         else:
             return None

@@ -67,6 +67,7 @@ setup(
     ],
     python_requires='>=3.5',
     install_requires=[
+        'attrs'
         # eg: 'aspectlib==1.1.1', 'six>=1.7',
     ],
     extras_require={

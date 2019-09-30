@@ -15,8 +15,8 @@ from setuptools import setup
 
 def read(*names, **kwargs):
     with io.open(
-        join(dirname(__file__), *names),
-        encoding=kwargs.get('encoding', 'utf8')
+            join(dirname(__file__), *names),
+            encoding=kwargs.get('encoding', 'utf8')
     ) as fh:
         return fh.read()
 
@@ -65,10 +65,14 @@ setup(
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     install_requires=[
         'attrs'
         # eg: 'aspectlib==1.1.1', 'six>=1.7',
+    ],
+    tests_require=[
+        'pytest',
+        'attrs'
     ],
     extras_require={
         # eg:
@@ -76,7 +80,7 @@ setup(
         #   ':python_version=="2.6"': ['argparse'],
     },
     setup_requires=[
-        'pytest-runner',
+        'pytest-runner'
     ],
     entry_points={
         # 'console_scripts': [

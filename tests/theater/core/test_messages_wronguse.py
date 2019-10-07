@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+import multiprocessing
+import queue
 from datetime import datetime
 
 import pytest
 
 from theater.core.constants import MsgType, Signal
-from theater.core.messages import Message, Status
+from theater.core.errors import IllegalActionException
+from theater.core.messages import Message, Status, ConsumerQueue, ProducerQueue
 
 
 class TestMessageWrongUsage:
@@ -83,3 +86,33 @@ class TestStatusWrongUsage:
         with pytest.raises(TypeError):
             _ = Status(reqtime=datetime.now(), statusmessage="Test", status="Test",
                        statustime=datetime.now(), time="Now")
+
+
+class TestProducer:
+    def test_randomq(self):
+        randomq = queue.Queue()
+        with pytest.raises(TypeError):
+            _ = ProducerQueue(randomq)
+
+    def test_get(self):
+        testq = multiprocessing.Queue()
+        producer = ProducerQueue(testq)
+        with pytest.raises(IllegalActionException):
+            producer.get_nowait()
+        with pytest.raises(IllegalActionException):
+            producer.get(False)
+
+
+class TestConsumer:
+    def test_randomq(self):
+        randomq = queue.Queue()
+        with pytest.raises(TypeError):
+            _ = ConsumerQueue(randomq)
+
+    def test_put(self):
+        testq = multiprocessing.Queue()
+        consumer = ConsumerQueue(testq)
+        with pytest.raises(IllegalActionException):
+            consumer.put_nowait("_")
+        with pytest.raises(IllegalActionException):
+            consumer.put("_", False)

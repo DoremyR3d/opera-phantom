@@ -11,7 +11,7 @@ import attr
 from theater.core.components.constants import INTERRUPTED_STATUS, IDLE_STATUS, MSGHANDLING_STATUS
 from theater.core.constants import Signal, MsgType
 from theater.core.errors import IllegalValueException, ScoreEnd
-from theater.core.messages import Message, Status
+from theater.core.messages import Message, Status, ProducerQueue, ConsumerQueue
 
 __all__ = ['BaseComponent', 'BaseMusician', 'DelegatingMusician']
 
@@ -26,7 +26,7 @@ class BaseComponent(ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: multiprocessing.Queue,
+                 mpq: ProducerQueue,
                  pausetime: int,
                  *args, **kwargs):
         """
@@ -39,6 +39,8 @@ class BaseComponent(ABC):
         if not name:
             raise IllegalValueException("Can't create an unnamed actor")
         self.__actorname = name
+        if mpq and not isinstance(mpq, ProducerQueue):
+            raise TypeError()
         self.__mq = mpq
         self.__pausetime = pausetime
 
@@ -151,15 +153,17 @@ class BaseMusician(BaseComponent, ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: multiprocessing.Queue,
+                 mpq: ProducerQueue,
                  pausetime: int,
-                 conductorq: multiprocessing.Queue,
+                 conductorq: ConsumerQueue,
                  *args, **kwargs):
         """
         extends theather.core.components.abc.BaseComponent
         :param conductorq: The queue used by the Musician to send messages
         """
         super().__init__(name, mpq, pausetime, *args, **kwargs)
+        if conductorq and not isinstance(conductorq, ConsumerQueue):
+            raise TypeError()
         self.__conductorsq = conductorq
         self.__starttime = datetime.now()
 
@@ -230,9 +234,9 @@ class DelegatingMusician(BaseMusician, ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: multiprocessing.Queue,
+                 mpq: ProducerQueue,
                  pausetime: int,
-                 conductorq: multiprocessing.Queue,
+                 conductorq: ConsumerQueue,
                  *args,
                  **kwargs):
         """

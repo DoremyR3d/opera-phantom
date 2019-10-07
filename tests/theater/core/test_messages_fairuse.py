@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+import multiprocessing
 from datetime import datetime
+
+import pytest
+from _queue import Empty
 
 from theater.core.constants import MsgType
 from theater.core.constants import Signal
-from theater.core.messages import Message, Status
+from theater.core.messages import Message, Status, ProducerQueue, ConsumerQueue, generatequeues
 
 
 class TestMessage:
@@ -73,3 +77,50 @@ class TestStatus:
         assert out.statusmessage is None
         assert out.time is None
         assert out.statustime is None
+
+
+class TestProducer:
+    def test_put(self):
+        testq = multiprocessing.Queue()
+        producer = ProducerQueue(testq)
+        assert testq
+        producer.put_nowait("Test1")
+        producer.put_nowait("Test2")
+        producer.put_nowait("Test3")
+        producer.put_nowait("Test4")
+        producer.put_nowait("Test5")
+        assert testq.get(True, 1.0) == "Test1"
+        assert testq.get(True, 1.0) == "Test2"
+        assert testq.get(True, 1.0) == "Test3"
+        assert testq.get(True, 1.0) == "Test4"
+        assert testq.get(True, 1.0) == "Test5"
+
+
+class TestConsumer:
+    def test_get(self):
+        testq = multiprocessing.Queue()
+        consumer = ConsumerQueue(testq)
+        assert consumer
+        testq.put_nowait("Test1")
+        testq.put_nowait("Test2")
+        testq.put_nowait("Test3")
+        testq.put_nowait("Test4")
+        testq.put_nowait("Test5")
+        assert consumer.get(True, 1.0) == "Test1"
+        assert consumer.get(True, 1.0) == "Test2"
+        assert consumer.get(True, 1.0) == "Test3"
+        assert consumer.get(True, 1.0) == "Test4"
+        assert consumer.get(True, 1.0) == "Test5"
+        with pytest.raises(Empty):
+            _ = consumer.get_nowait()
+
+
+class TestOneWayQueues:
+    def test_production(self):
+        producer, consumer = generatequeues()
+        assert producer
+        assert consumer
+        assert isinstance(producer, ProducerQueue)
+        assert isinstance(consumer, ConsumerQueue)
+        producer.put_nowait("Hello")
+        assert consumer.get(True, 1.0) == "Hello"

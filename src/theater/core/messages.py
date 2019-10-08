@@ -7,7 +7,7 @@ import attr
 from theater.core.constants import Signal, MsgType
 from theater.core.errors import IllegalActionException
 
-__all__ = ['Message', 'Status', 'generatequeues']
+__all__ = ['Message', 'Status', 'generatequeues', 'ProducerQueue', 'ConsumerQueue']
 
 
 @attr.s(kw_only=True, frozen=True)
@@ -58,6 +58,7 @@ class Message:
 class ProducerQueue(multiprocessing.queues.Queue):
     __slots__ = ('__innerq',)
 
+    # noinspection PyMissingConstructor
     def __init__(self, innerq: multiprocessing.queues.Queue):
         if not isinstance(innerq, multiprocessing.queues.Queue):
             raise TypeError
@@ -103,6 +104,7 @@ class ProducerQueue(multiprocessing.queues.Queue):
 class ConsumerQueue(multiprocessing.queues.Queue):
     __slots__ = ('__innerq',)
 
+    # noinspection PyMissingConstructor
     def __init__(self, innerq: multiprocessing.queues.Queue):
         if not isinstance(innerq, multiprocessing.queues.Queue):
             raise TypeError

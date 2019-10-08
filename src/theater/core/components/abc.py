@@ -1,10 +1,9 @@
-import multiprocessing
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from queue import Full, Empty
-from typing import Union
+from typing import Union, Optional
 
 import attr
 
@@ -13,7 +12,31 @@ from theater.core.constants import Signal, MsgType
 from theater.core.errors import IllegalValueException, ScoreEnd
 from theater.core.messages import Message, Status, ProducerQueue, ConsumerQueue
 
-__all__ = ['BaseComponent', 'BaseMusician', 'DelegatingMusician']
+__all__ = ['StateAware', 'BaseComponent', 'BaseMusician', 'DelegatingMusician']
+
+
+class StateAware(ABC):
+    """Defines standard properties for classes able to handle multiple states"""
+    __slots__ = ()
+
+    @property
+    @abstractmethod
+    def _status(self):
+        pass
+
+    @property
+    @abstractmethod
+    def _statustime(self):
+        pass
+
+    @property
+    @abstractmethod
+    def _statusdetail(self):
+        pass
+
+    @abstractmethod
+    def _updatestatus(self, pstatus: str, pdetail: Optional[str]) -> None:
+        pass
 
 
 class BaseComponent(ABC):
@@ -222,7 +245,7 @@ class BaseMusician(BaseComponent, ABC):
             self._catchsendexception(e)
 
 
-class DelegatingMusician(BaseMusician, ABC):
+class DelegatingMusician(BaseMusician, StateAware, ABC):
     """A Musician that delegates his execution logic to a thread of its own. Since it's 'free' while executing
     he's able to handle messages in every moment and it can also kill tasks. Also he retains a customized status,
     an - optional - description of it and the time in which the status changed"""
@@ -255,25 +278,13 @@ class DelegatingMusician(BaseMusician, ABC):
     def _status(self) -> str:
         return self.__status
 
-    @_status.setter
-    def _status(self, value: str):
-        self.__status = value
-
     @property
     def _statusdetail(self) -> Union[str, None]:
         return self.__statusdetail
 
-    @_statusdetail.setter
-    def _statusdetail(self, value: Union[str, None]):
-        self.__statusdetail = value
-
     @property
     def _statustime(self) -> datetime:
         return self.__statustime
-
-    @_statustime.setter
-    def _statustime(self, _: datetime):
-        self.__statustime = datetime.now()
 
     # --------------------
     # DelegatingMusician public methods
@@ -282,10 +293,7 @@ class DelegatingMusician(BaseMusician, ABC):
     def run(self):
         with ThreadPoolExecutor(max_workers=1) as executor:
             while 1:
-                # Status reset
-                self._status = IDLE_STATUS
-                self._statusdetail = f"Running since {super()._starttime}"
-                self._statustime = datetime.now()
+                self._updatestatus(IDLE_STATUS, f"Running since {super()._starttime}")
                 # Execution
                 self._pause()
                 self._onpauseend(executor=executor)
@@ -293,6 +301,13 @@ class DelegatingMusician(BaseMusician, ABC):
     # --------------------
     # DelegatingMusician protected methods
     # --------------------
+
+    def _updatestatus(self, pstatus: str, pdetail: Optional[str]) -> None:
+        if not pstatus:
+            raise IllegalValueException()
+        self.__status = pstatus
+        self.__statustime = datetime.now()
+        self.__statusdetail = pdetail
 
     def _handlebeat(self, msg: Message) -> Union[Signal, None]:
         """extends BaseMusician._handlebeat. It adds the status states to the STATUS beat"""
@@ -314,16 +329,13 @@ class DelegatingMusician(BaseMusician, ABC):
         """extends BaseComponent._poll. It adds status handling to its process"""
         try:
             msg = self._mq.get_nowait()
-            self._status = MSGHANDLING_STATUS
-            self._statustime = datetime.now()
+            self._updatestatus(MSGHANDLING_STATUS, None)
             return self._handlemessage(msg)
         except Empty:
             return None
         finally:
             if self._status is not IDLE_STATUS:
-                self._status = IDLE_STATUS
-                self._statusdetail = f"Running since {super()._starttime}"
-                self._statustime = datetime.now()
+                self._updatestatus(IDLE_STATUS, f"Running since {super()._starttime}")
 
     @abstractmethod
     def _onpauseend(self, executor=None, *args, **kwargs):

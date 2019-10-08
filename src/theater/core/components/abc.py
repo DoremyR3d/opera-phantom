@@ -41,7 +41,7 @@ class StateAware(ABC):
 
 class BaseComponent(ABC):
     """A component handles the execution of a recurring task that accepts external input in the form of Messages"""
-    __slots__ = ('__actorname', '__mq', '__pausetime')
+    __slots__ = ('__actorname', '__outbox', '__pausetime')
 
     # --------------------
     # BaseComponent Constructor
@@ -49,22 +49,22 @@ class BaseComponent(ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: ProducerQueue,
+                 outbox: ProducerQueue,
                  pausetime: int,
                  *args, **kwargs):
         """
         Builds the essential skeleton for a Component
         :param name: The name assigned to this component. A None name raises an IllegalValueException
-        :param mpq: The multiprocessing.Queue from which the component receives messages
+        :param outbox: The multiprocessing.Queue from which the component receives messages
         :param pausetime: The number of ticks in which the component sleeps while polling the internal queue. 1 tick
         should be very close to 1 second
         """
         if not name:
             raise IllegalValueException("Can't create an unnamed actor")
         self.__actorname = name
-        if mpq and not isinstance(mpq, ProducerQueue):
+        if outbox and not isinstance(outbox, ProducerQueue):
             raise TypeError()
-        self.__mq = mpq
+        self.__outbox = outbox
         self.__pausetime = pausetime
 
     # --------------------
@@ -76,8 +76,8 @@ class BaseComponent(ABC):
         return self.__actorname
 
     @property
-    def _mq(self):
-        return self.__mq
+    def _outbox(self):
+        return self.__outbox
 
     @property
     def _pausetime(self):
@@ -115,22 +115,22 @@ class BaseComponent(ABC):
         else:
             return None
 
-    def _handlebeat(self, _: Message) -> Union[Signal, None]:
+    def _handlebeat(self, _: Message) -> Optional[Signal]:
         return Signal.BEAT
 
-    def _handletrigger(self, _: Message) -> Union[Signal, None]:
+    def _handletrigger(self, _: Message) -> Optional[Signal]:
         return Signal.TRIGGER
 
-    def _handleupdate(self, _: Message) -> Union[Signal, None]:
+    def _handleupdate(self, _: Message) -> Optional[Signal]:
         return Signal.UPDATE
 
-    def _handleinterrupt(self, _: Message) -> Union[Signal, None]:
+    def _handleinterrupt(self, _: Message) -> Optional[Signal]:
         return Signal.INTERRUPT
 
-    def _handlecreate(self, _: Message) -> Union[Signal, None]:
+    def _handlecreate(self, _: Message) -> Optional[Signal]:
         return Signal.CREATE
 
-    def _handlekill(self, _: Message) -> Union[Signal, None]:
+    def _handlekill(self, _: Message) -> Optional[Signal]:
         return Signal.KILL
 
     def _interrupthook(self):
@@ -146,11 +146,11 @@ class BaseComponent(ABC):
     # BaseComponent private methods
     # --------------------
 
-    def _poll(self) -> Union[Signal, None]:
+    def _poll(self) -> Optional[Signal]:
         """Polls the internal queue. If a message is found, it's handled. It returns a Signal on a succesful
         message handling, or None if nothing have been processed/something went wrong"""
         try:
-            msg = self._mq.get_nowait()
+            msg = self._outbox.get_nowait()
             return self._handlemessage(msg)
         except Empty:
             return None
@@ -168,7 +168,7 @@ class BaseComponent(ABC):
 class BaseMusician(BaseComponent, ABC):
     """A Musician is a "Conducted" component, meaning that he's able to send messages of it's own to it's manager.
     It stores the time of its creation for detailed heartbeats"""
-    __slots__ = ('__conductorsq', '__starttime')
+    __slots__ = ('__inbox', '__starttime')
 
     # --------------------
     # BaseMusician constructor
@@ -176,7 +176,7 @@ class BaseMusician(BaseComponent, ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: ProducerQueue,
+                 outbox: ProducerQueue,
                  pausetime: int,
                  conductorq: ConsumerQueue,
                  *args, **kwargs):
@@ -184,10 +184,10 @@ class BaseMusician(BaseComponent, ABC):
         extends theather.core.components.abc.BaseComponent
         :param conductorq: The queue used by the Musician to send messages
         """
-        super().__init__(name, mpq, pausetime, *args, **kwargs)
+        super().__init__(name, outbox, pausetime, *args, **kwargs)
         if conductorq and not isinstance(conductorq, ConsumerQueue):
             raise TypeError()
-        self.__conductorsq = conductorq
+        self.__inbox = conductorq
         self.__starttime = datetime.now()
 
     # --------------------
@@ -195,8 +195,8 @@ class BaseMusician(BaseComponent, ABC):
     # --------------------
 
     @property
-    def _conductorsq(self):
-        return self.__conductorsq
+    def _inbox(self):
+        return self.__inbox
 
     @property
     def _starttime(self):
@@ -206,7 +206,7 @@ class BaseMusician(BaseComponent, ABC):
     # BaseMusician protected methods
     # --------------------
 
-    def _handlebeat(self, msg: Message) -> Union[Signal, None]:
+    def _handlebeat(self, msg: Message) -> Optional[Signal]:
         """It sends a BEAT message using the _conductorq if the message body is NONE or STATUS. The answer
         depends on the body type of the incoming message"""
         msgtype = msg.type
@@ -240,7 +240,7 @@ class BaseMusician(BaseComponent, ABC):
                       type=msgtype,
                       body=msgbody)
         try:
-            self._conductorsq.put_nowait(msg)
+            self._inbox.put_nowait(msg)
         except Full as e:
             self._catchsendexception(e)
 
@@ -257,7 +257,7 @@ class DelegatingMusician(BaseMusician, StateAware, ABC):
 
     def __init__(self,
                  name: str,
-                 mpq: ProducerQueue,
+                 outbox: ProducerQueue,
                  pausetime: int,
                  conductorq: ConsumerQueue,
                  *args,
@@ -265,7 +265,7 @@ class DelegatingMusician(BaseMusician, StateAware, ABC):
         """
         extends theather.core.components.abc.BaseMusician
         """
-        super().__init__(name, mpq, pausetime, conductorq, *args, **kwargs)
+        super().__init__(name, outbox, pausetime, conductorq, *args, **kwargs)
         self.__status = None
         self.__statusdetail = None
         self.__statustime = None
@@ -279,7 +279,7 @@ class DelegatingMusician(BaseMusician, StateAware, ABC):
         return self.__status
 
     @property
-    def _statusdetail(self) -> Union[str, None]:
+    def _statusdetail(self) -> Optional[str]:
         return self.__statusdetail
 
     @property
@@ -309,7 +309,7 @@ class DelegatingMusician(BaseMusician, StateAware, ABC):
         self.__statustime = datetime.now()
         self.__statusdetail = pdetail
 
-    def _handlebeat(self, msg: Message) -> Union[Signal, None]:
+    def _handlebeat(self, msg: Message) -> Optional[Signal]:
         """extends BaseMusician._handlebeat. It adds the status states to the STATUS beat"""
         msgtype = msg.type
         if msgtype is MsgType.NONE:
@@ -325,10 +325,10 @@ class DelegatingMusician(BaseMusician, StateAware, ABC):
         else:
             return None
 
-    def _poll(self) -> Union[Signal, None]:
+    def _poll(self) -> Optional[Signal]:
         """extends BaseComponent._poll. It adds status handling to its process"""
         try:
-            msg = self._mq.get_nowait()
+            msg = self._outbox.get_nowait()
             self._updatestatus(MSGHANDLING_STATUS, None)
             return self._handlemessage(msg)
         except Empty:
